@@ -7,7 +7,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "cdk": "cdk",
-    "deploy": "cdk deploy",
+    "deploy": "cdk deploy --require-approval never --outputs-file outputs.json",
+    "deploy:with-approval": "cdk deploy --outputs-file outputs.json",
     "synth": "cdk synth",
     "diff": "cdk diff",
     "destroy": "cdk destroy"
@@ -17,7 +18,7 @@
     "constructs": "^10.3.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.25",
     "aws-cdk": "^2.110.0",
     "typescript": "^5.3.0"
   }

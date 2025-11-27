@@ -1,0 +1,33 @@
+# Node modules (will be installed in container)
+node_modules
+
+# Source files (only dist is needed)
+src
+
+# Test files
+*.test.ts
+*.test.js
+__tests__
+
+# Development files
+tsconfig.json
+vitest.config.ts
+
+# Documentation
+*.md
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -94,10 +94,11 @@ This document specifies the requirements for a web application that enables user
 #### Acceptance Criteria
 
 1. THE Web Application SHALL be deployable to a cloud hosting service
-2. THE Backend Service SHALL be deployable to a cloud compute service
+2. THE Backend Service SHALL be deployable to a long-running compute service capable of multi-hour transfers
 3. THE deployment SHALL use infrastructure-as-code for reproducibility
 4. THE deployment SHALL configure necessary AWS permissions for S3 access
 5. THE deployment SHALL provide a public URL for accessing the Web Application
+6. THE Backend Service SHALL use a persistent data store for tracking transfer state across service restarts
 
 ### Requirement 8
 
@@ -106,7 +107,9 @@ This document specifies the requirements for a web application that enables user
 #### Acceptance Criteria
 
 1. WHEN transferring files, THEN the Backend Service SHALL use streaming to avoid loading entire files into memory
-2. WHEN transferring large files, THEN the Backend Service SHALL maintain connection timeouts appropriate for long transfers
+2. WHEN transferring large files, THEN the Backend Service SHALL support transfers that take hours or days to complete
 3. WHEN transferring files, THEN the Backend Service SHALL handle network interruptions gracefully
 4. IF a transfer is interrupted, THEN the Backend Service SHALL report the failure to the Web Application
-5. THE Backend Service SHALL support files up to 5GB in size
+5. THE Backend Service SHALL support files from 1GB up to 10TB in size
+6. WHEN a transfer is initiated, THEN the Backend Service SHALL return immediately with a transfer ID without waiting for completion
+7. WHEN a transfer is running, THEN the Backend Service SHALL persist progress state to allow recovery from failures

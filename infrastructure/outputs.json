@@ -1,0 +1,10 @@
+{
+  "S3ZipDownloaderStack": {
+    "CloudFrontUrl": "d2h4pm30cmzfn1.cloudfront.net",
+    "S3ZipDownloaderApiEndpoint6607D9B1": "https://qlicwyxqd9.execute-api.us-east-1.amazonaws.com/prod/",
+    "FrontendBucketName": "s3zipdownloaderstack-frontendbucketefe2e19c-4amo7cri3yg5",
+    "ApiEndpoint": "https://qlicwyxqd9.execute-api.us-east-1.amazonaws.com/prod/",
+    "LambdaFunctionName": "S3ZipDownloaderStack-BackendFunction63314140-TQRbNwn7znjq",
+    "TestBucketName": "s3-zip-downloader-test-852515592623"
+  }
+}

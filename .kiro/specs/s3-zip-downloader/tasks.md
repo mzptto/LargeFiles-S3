@@ -4,16 +4,22 @@
 
 
 
-
-
-  - Create directory structure for frontend (React) and backend (Lambda)
+  - Create directory structure for frontend (React), orchestrator (Lambda), and worker (Fargate container)
   - Initialize package.json files with dependencies
-  - Set up TypeScript configuration for both frontend and backend
+  - Set up TypeScript configuration for frontend, orchestrator, and worker
   - Create AWS CDK project for infrastructure-as-code
+  - Create Dockerfile for Fargate worker container
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 2. Implement validation services
-- [ ] 2.1 Create URL validation functions
+- [x] 2. Implement validation services
+
+
+
+
+
+- [x] 2.1 Create URL validation functions
+
+
   - Implement HTTPS protocol validation
   - Implement .zip extension validation
   - Create validation result types
@@ -24,7 +30,9 @@
   - **Property 2: ZIP Extension Validation**
   - **Validates: Requirements 1.2, 1.3**
 
-- [ ] 2.3 Create S3 bucket name validation functions
+- [x] 2.3 Create S3 bucket name validation functions
+
+
   - Implement AWS S3 naming convention validation (3-63 chars, lowercase, no underscores, etc.)
   - Create validation error messages
   - _Requirements: 2.2_
@@ -33,19 +41,31 @@
   - **Property 5: S3 Bucket Name Validation**
   - **Validates: Requirements 2.2**
 
-- [ ] 2.5 Create key prefix validation functions
+
+- [x] 2.5 Create key prefix validation functions
+
   - Implement S3 key prefix validation
   - Handle optional prefix logic
   - _Requirements: 2.5_
 
-- [ ] 3. Build frontend components
-- [ ] 3.1 Set up React app with Cloudscape Design System
+- [x] 3. Build frontend components
+
+
+
+
+
+
+
+- [x] 3.1 Set up React app with Cloudscape Design System
+
   - Install and configure AWS Cloudscape components
   - Set up routing and app structure
   - Configure Cloudscape theme
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 3.2 Create DownloadForm component
+- [x] 3.2 Create DownloadForm component
+
+
   - Implement source URL input field with validation
   - Implement S3 bucket name input field with validation
   - Implement optional key prefix input field
@@ -61,12 +81,17 @@
   - **Property 7: Valid Bucket Name Enables Action**
   - **Validates: Requirements 1.4, 1.5, 2.3, 2.4**
 
-- [ ] 3.4 Create ProgressBar component
+- [x] 3.4 Create ProgressBar component
+
+
+
+
   - Implement progress bar using Cloudscape ProgressBar
   - Display percentage complete (0-100)
-  - Show transfer status (idle, in-progress, success, error)
+  - Show transfer status (pending, in-progress, success, error)
   - Display success message with S3 location
   - Display error messages
+  - Handle long-running transfers (show elapsed time)
   - _Requirements: 4.1, 4.4, 4.5_
 
 - [ ]* 3.5 Write property tests for progress display
@@ -75,33 +100,141 @@
   - **Property 18: Failure Message Display**
   - **Validates: Requirements 4.1, 4.4, 4.5**
 
-- [ ] 3.6 Implement API client service
+- [x] 3.6 Implement API client service
+
+
+
+
+
+
   - Create Axios-based HTTP client for backend API
-  - Implement download request function
-  - Implement progress polling mechanism
+  - Implement job submission function (returns transfer ID immediately)
+  - Implement progress polling mechanism (queries DynamoDB via API)
   - Handle API errors and network failures
-  - _Requirements: 3.1, 4.3_
+  - _Requirements: 3.1, 4.3, 8.6_
 
-- [ ] 4. Build backend services
-- [ ] 4.1 Create Lambda handler entry point
-  - Set up Express.js or direct Lambda handler
+- [x] 4. Create DynamoDB table for transfer state
+
+
+
+
+
+
+
+
+
+
+- [x] 4.1 Define DynamoDB table schema
+
+
+
+
+  - Define partition key (transferId)
+  - Define attributes (status, sourceUrl, bucket, key, bytesTransferred, totalBytes, startTime, endTime, error)
+  - Configure TTL for automatic cleanup of old records
+  - _Requirements: 7.6, 8.7_
+
+
+- [x] 4.2 Implement DynamoDB service
+
+  - Create function to create transfer record
+  - Create function to update transfer progress
+  - Create function to query transfer status
+  - Create function to mark transfer complete/failed
+  - Handle DynamoDB errors
+  - _Requirements: 7.6, 8.7_
+
+- [ ]* 4.3 Write unit tests for DynamoDB operations
+  - Test record creation
+  - Test progress updates
+  - Test status queries
+  - Test error handling
+  - _Requirements: 7.6, 8.7_
+
+- [x] 5. Build Lambda orchestrator
+
+
+
+
+- [x] 5.1 Create Lambda handler for job submission
+
+
   - Parse and validate incoming requests
-  - Route to appropriate service functions
-  - Return structured responses
-  - _Requirements: 3.1_
+  - Validate source URL and bucket name
+  - Generate unique transfer ID
+  - Create transfer record in DynamoDB with "pending" status
+  - Start Step Functions workflow with transfer parameters
+  - Return transfer ID immediately (do not wait for completion)
+  - _Requirements: 3.1, 8.6_
 
-- [ ] 4.2 Implement UrlService
+- [x] 5.2 Create Lambda handler for progress queries
+
+
+  - Extract transfer ID from request
+  - Query DynamoDB for transfer status
+  - Return current progress, status, and metadata
+  - Handle transfer not found errors
+  - _Requirements: 4.2, 4.3_
+
+- [ ]* 5.3 Write unit tests for Lambda orchestrator
+  - Test request validation
+  - Test transfer record creation
+  - Test Step Functions invocation
+  - Test progress query logic
+  - _Requirements: 3.1, 4.2, 8.6_
+
+- [x] 6. Build Fargate worker container
+
+
+
+
+
+
+
+
+- [x] 6.1 Create Dockerfile for worker
+
+  - Base image: Node.js 18 Alpine
+  - Install dependencies
+  - Copy worker code
+  - Set entrypoint
+  - _Requirements: 7.2, 8.2_
+
+- [x] 6.2 Implement worker entry point
+
+
+  - Parse environment variables (transferId, sourceUrl, bucket, keyPrefix)
+  - Initialize AWS SDK clients (S3, DynamoDB)
+  - Load transfer record from DynamoDB
+  - Invoke streaming service
+  - Update DynamoDB on completion or failure
+  - _Requirements: 3.1, 7.2, 8.2_
+
+- [x] 6.3 Implement UrlService for worker
+
+
+
+
+
+
+
+
+
   - Create function to extract filename from URL
   - Create function to get Content-Length header
   - Create function to validate URL accessibility
   - Handle various URL formats
   - _Requirements: 3.3_
 
-- [ ]* 4.3 Write property test for filename extraction
+- [ ]* 6.4 Write property test for filename extraction
   - **Property 11: Filename Extraction**
   - **Validates: Requirements 3.3**
 
-- [ ] 4.4 Implement S3Service
+- [x] 6.5 Implement S3Service for worker
+
+
+
+
   - Initialize AWS SDK v3 S3 client
   - Create function to validate bucket access/permissions
   - Implement multipart upload creation
@@ -110,197 +243,307 @@
   - Implement abort upload function
   - _Requirements: 3.2, 6.1, 6.2_
 
-- [ ]* 4.5 Write property test for permission validation
+- [ ]* 6.6 Write property test for permission validation
   - **Property 19: Permission Validation**
   - **Property 20: Permission Error Handling**
   - **Validates: Requirements 6.2, 6.3**
 
-- [ ] 4.6 Implement StreamingService
+- [x] 6.7 Implement StreamingService for worker
+
+
+
+
+
   - Create streaming transfer function
   - Fetch file from source URL using Node.js streams
   - Pipe data to S3 using multipart upload
   - Track bytes transferred for progress calculation
-  - Emit progress events
+  - Update DynamoDB with progress every 1% or 100MB
   - Handle stream errors and cleanup
-  - _Requirements: 3.2, 4.2, 8.1_
+  - Support files up to 10TB
+  - _Requirements: 3.2, 4.2, 8.1, 8.2, 8.5_
 
-- [ ]* 4.7 Write property test for streaming behavior
+- [ ]* 6.8 Write property test for streaming behavior
   - **Property 10: Streaming Transfer (Memory Efficiency)**
   - **Property 21: Streaming Memory Consistency**
   - **Validates: Requirements 3.2, 8.1**
 
-- [ ] 4.8 Implement error handling for all backend operations
+- [x] 6.9 Implement error handling for worker
+
+
+
+
   - Handle URL fetch errors (DNS, timeout, HTTP errors)
   - Handle S3 errors (bucket not found, access denied, quota)
   - Handle streaming errors (incomplete transfer, network interruption)
+  - Update DynamoDB with error details
   - Format error responses consistently
-  - _Requirements: 3.4, 3.5_
+  - _Requirements: 3.4, 3.5, 8.3, 8.4_
 
-- [ ]* 4.9 Write property tests for error handling
+- [ ]* 6.10 Write property tests for error handling
   - **Property 12: Connection Error Handling**
   - **Property 13: S3 Write Error Handling**
   - **Property 23: Network Interruption Handling**
   - **Property 24: Interruption Error Reporting**
   - **Validates: Requirements 3.4, 3.5, 8.3, 8.4**
+-
 
-- [ ] 5. Implement key prefix handling
-- [ ] 5.1 Add key prefix logic to backend
+
+- [x] 7. Implement key prefix handling
+
+
+
+- [x] 7.1 Add key prefix logic to worker
+
+
   - Concatenate key prefix with extracted filename
   - Handle trailing slashes in prefix
   - Validate final S3 key format
   - _Requirements: 2.5_
 
-- [ ]* 5.2 Write property test for key prefix incorporation
+- [ ]* 7.2 Write property test for key prefix incorporation
   - **Property 8: Key Prefix Incorporation**
   - **Validates: Requirements 2.5**
 
-- [ ] 6. Implement progress reporting
-- [ ] 6.1 Add progress tracking to StreamingService
-  - Calculate percentage based on bytes transferred and total bytes
-  - Throttle progress updates (every 1% or 1MB)
-  - Store progress state during transfer
-  - _Requirements: 4.2_
+- [x] 8. Create AWS Step Functions workflow
 
-- [ ] 6.2 Add progress polling endpoint to backend
-  - Create API endpoint to query transfer progress
-  - Return current progress state
-  - Handle completed and failed transfers
-  - _Requirements: 4.2, 4.3_
 
-- [ ] 6.3 Implement progress polling in frontend
-  - Poll backend for progress updates during transfer
-  - Update ProgressBar component with new values
-  - Stop polling on completion or error
-  - _Requirements: 4.3_
 
-- [ ]* 6.4 Write property tests for progress updates
-  - **Property 15: Progress Reporting**
-  - **Property 16: Progress Bar Updates**
-  - **Validates: Requirements 4.2, 4.3**
 
-- [ ] 7. Configure timeout and large file handling
-- [ ] 7.1 Configure Lambda timeout settings
-  - Set Lambda timeout to 15 minutes
-  - Configure API Gateway timeout appropriately
-  - Set HTTP client timeouts for long transfers
-  - _Requirements: 8.2_
+- [x] 8.1 Define Step Functions state machine
 
-- [ ] 7.2 Implement multipart upload for large files
-  - Use multipart upload for files over 100MB
-  - Configure part size (5MB minimum)
-  - Handle part upload failures with retry
-  - _Requirements: 8.1, 8.5_
 
-- [ ]* 7.3 Write property test for large file timeout handling
-  - **Property 22: Large File Timeout Handling**
-  - **Validates: Requirements 8.2**
+  - Create state for launching Fargate task
+  - Pass transfer parameters to Fargate task
+  - Configure task timeout (48 hours for very large files)
+  - Handle task failures and retries
+  - _Requirements: 7.2, 8.2_
 
-- [ ] 8. Create AWS CDK infrastructure stack
-- [ ] 8.1 Define S3 bucket for frontend hosting
-  - Create S3 bucket with public read access
-  - Configure bucket for static website hosting
+- [x] 8.2 Implement error handling in workflow
+
+
+  - Catch Fargate task failures
+  - Update DynamoDB with failure status
+  - Configure retry logic for transient failures
+  - _Requirements: 8.3, 8.4_
+
+- [x] 9. Create AWS CDK infrastructure stack
+
+
+
+
+
+
+- [x] 9.1 Define S3 bucket for frontend hosting
+
+
+  - Create S3 bucket with private access
+  - Configure for CloudFront origin access
   - Set up bucket policies
   - _Requirements: 7.1_
 
-- [ ] 8.2 Define CloudFront distribution
-  - Create CloudFront distribution pointing to S3 bucket
+- [x] 9.2 Define CloudFront distribution
+
+
+  - Create CloudFront distribution with OAC
   - Configure caching behavior
   - Set up custom error pages
   - _Requirements: 7.1, 7.5_
 
-- [ ] 8.3 Define Lambda function
-  - Create Lambda function resource
-  - Configure memory (1024MB) and timeout (15 minutes)
-  - Set up environment variables
-  - Package function code with dependencies
-  - _Requirements: 7.2_
+- [x] 9.3 Define DynamoDB table
 
-- [ ] 8.4 Define API Gateway
+
+  - Create table with transferId as partition key
+  - Configure TTL attribute for automatic cleanup (30 days)
+  - Set up GSI for querying by status (optional)
+  - Configure on-demand billing
+  - _Requirements: 7.6, 8.7_
+
+- [x] 9.4 Define Lambda orchestrator function
+
+
+  - Create Lambda function resource for job submission
+  - Configure memory (512MB) and timeout (30 seconds)
+  - Set up environment variables
+  - Grant permissions to DynamoDB and Step Functions
+  - _Requirements: 7.2, 8.6_
+
+- [x] 9.5 Define Lambda progress query function
+
+
+  - Create Lambda function for querying transfer status
+  - Configure memory (256MB) and timeout (10 seconds)
+  - Grant read permissions to DynamoDB
+  - _Requirements: 4.2, 4.3_
+
+- [x] 9.6 Define API Gateway
+
+
   - Create REST API Gateway
-  - Configure routes for download and progress endpoints
+  - Configure POST /transfers endpoint (job submission)
+  - Configure GET /transfers/{transferId} endpoint (progress query)
   - Set up CORS configuration
   - Configure throttling and rate limiting
   - _Requirements: 7.2, 7.5_
 
-- [ ] 8.5 Define IAM roles and permissions
-  - Create Lambda execution role
-  - Attach S3 write permissions policy
-  - Attach CloudWatch Logs permissions
+- [x] 9.7 Define ECS Fargate cluster and task definition
+
+
+  - Create ECS cluster
+  - Define Fargate task definition (2 vCPU, 4GB memory)
+  - Configure container image from ECR
+  - Set up CloudWatch log group
+  - Configure task execution role
+  - _Requirements: 7.2, 8.2_
+
+- [x] 9.8 Define Step Functions state machine
+
+
+  - Create state machine resource
+  - Define workflow to launch Fargate task
+  - Configure IAM role with ECS permissions
+  - Set up CloudWatch logging
+  - _Requirements: 7.2, 8.2_
+
+- [x] 9.9 Define IAM roles and permissions
+
+
+  - Create Lambda execution role with DynamoDB and Step Functions permissions
+  - Create Fargate task role with S3 write and DynamoDB write permissions
+  - Create Step Functions execution role with ECS permissions
   - Configure least-privilege access
   - _Requirements: 6.1, 7.4_
 
-- [ ] 8.6 Add CloudWatch logging and monitoring
+- [x] 9.10 Add CloudWatch logging and monitoring
+
+
   - Configure Lambda log groups
+  - Configure Fargate task log groups
   - Set up CloudWatch metrics for success/failure rates
   - Configure alarms for errors
   - _Requirements: 7.2_
 
-- [ ] 9. Create deployment scripts
-- [ ] 9.1 Create frontend build script
+- [x] 10. Create deployment scripts
+
+
+
+
+- [x] 10.1 Create frontend build script
+
+
   - Add npm script to build React app for production
   - Optimize bundle size
   - Generate source maps
   - _Requirements: 7.1_
 
-- [ ] 9.2 Create CDK deployment script
+- [x] 10.2 Create Docker build script
+
+
+  - Add script to build Fargate worker container
+  - Push image to ECR
+  - Tag with version
+  - _Requirements: 7.2_
+
+- [x] 10.3 Create CDK deployment script
+
+
   - Add npm script to deploy CDK stack
   - Configure AWS credentials handling
   - Add stack output display
   - _Requirements: 7.3_
 
-- [ ] 9.3 Create frontend upload script
+- [x] 10.4 Create frontend upload script
+
+
   - Add script to sync built files to S3
   - Invalidate CloudFront cache after upload
   - Set appropriate content types and cache headers
   - _Requirements: 7.1_
 
-- [ ] 10. Integration and end-to-end testing
-- [ ] 10.1 Set up test S3 bucket
+- [x] 11. Integration and end-to-end testing
+
+
+
+
+
+- [x] 11.1 Set up test S3 bucket
+
   - Create dedicated test bucket
   - Configure test IAM permissions
-  - Add test bucket to CDK stack (optional)
+  - Add test bucket to CDK stack
   - _Requirements: 3.2, 3.5_
 
-- [ ] 10.2 Create mock HTTP server for testing
+- [x] 11.2 Create mock HTTP server for testing
+
   - Set up local HTTP server serving test ZIP files
   - Simulate various response scenarios (success, 404, timeout)
-  - Test with different file sizes
+  - Test with different file sizes (small, medium, large)
   - _Requirements: 3.1, 3.4_
 
-- [ ]* 10.3 Write integration tests
+- [ ]* 11.3 Write integration tests
   - Test complete flow from frontend to S3
-  - Test with various file sizes (small, medium, large)
+  - Test with various file sizes (1GB, 10GB, 50GB)
   - Test error scenarios (invalid URL, no permissions)
   - Test progress reporting accuracy
-  - _Requirements: 3.1, 3.2, 4.2, 8.1_
+  - Test DynamoDB state persistence
+  - _Requirements: 3.1, 3.2, 4.2, 8.1, 8.7_
+- [x] 12. Security hardening
 
-- [ ] 11. Security hardening
-- [ ] 11.1 Verify credential security
+
+
+
+- [ ] 12. Security hardening
+
+
+- [x] 12.1 Verify credential security
+
+
   - Ensure no AWS credentials in frontend code
-  - Verify Lambda uses IAM role (no hardcoded credentials)
+  - Verify Fargate uses IAM role (no hardcoded credentials)
   - Check environment variables are not exposed
   - _Requirements: 6.4, 6.5_
 
-- [ ] 11.2 Add input sanitization
-  - Sanitize all user inputs on backend
+- [x] 12.2 Add input sanitization
+
+
+  - Sanitize all user inputs in orchestrator
   - Validate Content-Type from source URL
   - Add rate limiting to API endpoints
   - _Requirements: 1.2, 1.3, 2.2_
+-
 
-- [ ] 12. Documentation and README
-- [ ] 12.1 Create deployment documentation
-  - Document prerequisites (AWS account, Node.js, AWS CLI)
+- [x] 13. Documentation and README
+
+
+
+
+
+
+- [x] 13.1 Create deployment documentation
+
+  - Document prerequisites (AWS account, Node.js, AWS CLI, Docker)
   - Document deployment steps
   - Document environment variable configuration
   - Add troubleshooting section
+  - Document ECS Fargate architecture
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 12.2 Create user documentation
+
+- [x] 13.2 Create user documentation
+
   - Document how to use the web application
   - Add screenshots of the interface
-  - Document supported file types and size limits
+  - Document supported file types and size limits (1GB - 10TB)
   - Add FAQ section
-  - _Requirements: 1.1, 2.1, 3.1_
+  - Explain asynchronous job processing model
+  - _Requirements: 1.1, 2.1, 3.1, 8.5_
 
-- [ ] 13. Final checkpoint - Ensure all tests pass
+- [x] 14. Final checkpoint - Ensure all tests pass
+
+
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.

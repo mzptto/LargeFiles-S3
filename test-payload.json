@@ -1,0 +1,5 @@
+{
+  "httpMethod": "POST",
+  "path": "/",
+  "body": "{\"sourceUrl\":\"https://walrus.wr.usgs.gov/namss/data/1998/namss.B-46a-98-TX.mcs3d.airgun.zip\",\"bucketName\":\"my-zip-downloads-test-bucket-2024\",\"keyPrefix\":\"downloads/\"}"
+}

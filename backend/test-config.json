@@ -1,0 +1,10 @@
+{
+  "testBucket": "s3-zip-downloader-test-852515592623",
+  "testBucketDescription": "Test bucket for integration testing. Created by CDK stack.",
+  "testRegion": "us-east-1",
+  "testFiles": {
+    "small": "test-small.zip",
+    "medium": "test-medium.zip",
+    "large": "test-large.zip"
+  }
+}

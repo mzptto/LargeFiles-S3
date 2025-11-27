@@ -11,8 +11,11 @@
     "package": "npm run build && cd dist && zip -r ../function.zip ."
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.450.0",
     "@aws-sdk/client-s3": "^3.450.0",
+    "@aws-sdk/client-sfn": "^3.450.0",
     "@aws-sdk/lib-storage": "^3.450.0",
+    "@aws-sdk/util-dynamodb": "^3.450.0",
     "axios": "^1.6.0"
   },
   "devDependencies": {

@@ -2,9 +2,9 @@
 
 ## Overview
 
-The S3 ZIP Downloader is a cloud-based web application that enables users to transfer ZIP files directly from HTTPS URLs to AWS S3 buckets without downloading files to their local machine. The application consists of a React-based frontend using AWS Cloudscape Design System and a Node.js backend service that handles the streaming transfer between the source URL and S3.
+The S3 ZIP Downloader is a cloud-based web application that enables users to transfer large ZIP files (10GB - 10TB) directly from HTTPS URLs to AWS S3 buckets without downloading files to their local machine. The application consists of a React-based frontend using AWS Cloudscape Design System and a containerized backend service that handles long-running streaming transfers between the source URL and S3.
 
-The architecture follows a client-server model where the frontend provides input validation and progress visualization, while the backend handles authentication, streaming, and S3 operations. The application will be deployed using AWS services: the frontend on S3 + CloudFront, and the backend on AWS Lambda with API Gateway.
+The architecture follows an asynchronous job processing model where the frontend provides input validation and progress visualization, while the backend handles authentication, streaming, and S3 operations. The application will be deployed using AWS services: the frontend on S3 + CloudFront, an API Gateway + Lambda orchestrator for job submission, and ECS Fargate containers for the actual file transfer work. Transfer state is persisted in DynamoDB to support multi-hour/multi-day transfers.
 
 ## Architecture
 
@@ -15,17 +15,24 @@ graph TB
     User[User Browser]
     Frontend[React Frontend<br/>Cloudscape UI]
     API[API Gateway]
-    Lambda[Lambda Function<br/>Node.js Backend]
+    Orchestrator[Lambda Orchestrator<br/>Job Submission]
+    StepFunctions[AWS Step Functions<br/>Workflow]
+    Fargate[ECS Fargate Task<br/>File Transfer Worker]
+    DynamoDB[(DynamoDB<br/>Transfer State)]
     S3Target[Target S3 Bucket]
     SourceURL[Source HTTPS URL]
     
     User -->|Interacts| Frontend
-    Frontend -->|HTTPS Requests| API
-    API -->|Invokes| Lambda
-    Lambda -->|Streams from| SourceURL
-    Lambda -->|Streams to| S3Target
-    Lambda -->|Progress Updates| API
-    API -->|WebSocket/Polling| Frontend
+    Frontend -->|Submit Job| API
+    API -->|Invokes| Orchestrator
+    Orchestrator -->|Start Workflow| StepFunctions
+    Orchestrator -->|Return Transfer ID| Frontend
+    StepFunctions -->|Launch Task| Fargate
+    Fargate -->|Streams from| SourceURL
+    Fargate -->|Streams to| S3Target
+    Fargate -->|Update Progress| DynamoDB
+    Frontend -->|Poll Progress| API
+    API -->|Query| DynamoDB
 ```
 
 ### Technology Stack
@@ -38,23 +45,31 @@ graph TB
 
 **Backend:**
 - Node.js 18+ with TypeScript
-- AWS SDK v3 for S3 operations
-- Express.js for API routing (if using containerized deployment)
-- Deployed on AWS Lambda + API Gateway
+- AWS SDK v3 for S3 and DynamoDB operations
+- Docker container for Fargate deployment
+- Lambda orchestrator for job submission
+- AWS Step Functions for workflow management
+- Deployed on ECS Fargate + API Gateway + Lambda
 
 **Infrastructure:**
 - AWS CDK for infrastructure-as-code
 - CloudFormation for deployment
 - IAM roles for secure AWS access
+- DynamoDB for transfer state persistence
+- ECS Fargate cluster for worker tasks
+- AWS Step Functions for orchestration
 
 ### Deployment Architecture
 
-The application will use a serverless architecture for cost-efficiency and scalability:
+The application will use a hybrid serverless + container architecture for handling large files:
 
 1. **Frontend**: Static files hosted on S3, distributed via CloudFront
-2. **Backend**: Lambda function behind API Gateway
-3. **Authentication**: IAM role attached to Lambda with S3 write permissions
-4. **Progress Updates**: Long-polling or WebSocket API for real-time updates
+2. **API Layer**: Lambda orchestrator behind API Gateway for job submission and status queries
+3. **Worker Layer**: ECS Fargate tasks for long-running file transfers (no time limits)
+4. **Orchestration**: AWS Step Functions to manage workflow and launch Fargate tasks
+5. **State Management**: DynamoDB table for persisting transfer progress and status
+6. **Authentication**: IAM roles attached to Fargate tasks with S3 write permissions
+7. **Progress Updates**: Frontend polls DynamoDB via API Gateway for transfer status
 
 ## Components and Interfaces
 
@@ -127,11 +142,13 @@ interface ValidationResult {
 
 ### Backend Components
 
-#### 1. API Handler (Lambda Entry Point)
+#### 1. Lambda Orchestrator (Job Submission Handler)
 - Receives download requests from API Gateway
 - Validates request payload
-- Initiates streaming transfer
-- Returns progress updates
+- Creates transfer record in DynamoDB
+- Starts Step Functions workflow
+- Returns transfer ID immediately (does not wait for completion)
+- Handles progress query requests by reading from DynamoDB
 
 **Request Interface:**
 ```typescript
@@ -152,11 +169,21 @@ interface DownloadResponse {
 }
 ```
 
-#### 2. StreamingService
+#### 2. Fargate Worker Container
+- Long-running container task (no time limits)
+- Fetches file from source URL using streaming
+- Pipes data to S3 using multipart upload
+- Tracks bytes transferred for progress
+- Updates DynamoDB with progress every 1% or 100MB
+- Handles network errors and retries
+- Can run for hours or days as needed
+
+#### 3. StreamingService (runs in Fargate container)
 - Fetches file from source URL using streaming
 - Pipes data to S3 using multipart upload
 - Tracks bytes transferred for progress
 - Handles network errors and retries
+- Persists state to DynamoDB
 
 **Interface:**
 ```typescript
@@ -179,7 +206,14 @@ interface TransferResult {
 }
 ```
 
-#### 3. S3Service
+#### 4. DynamoDBService
+- Manages transfer state persistence
+- Creates transfer records
+- Updates progress
+- Queries transfer status
+- Handles concurrent updates
+
+#### 5. S3Service
 - Wraps AWS SDK S3 client
 - Validates bucket permissions before transfer
 - Creates multipart upload
@@ -196,7 +230,7 @@ interface S3Service {
 }
 ```
 
-#### 4. UrlService
+#### 6. UrlService
 - Extracts filename from URL
 - Validates URL accessibility
 - Retrieves content-length header for progress tracking
@@ -221,24 +255,33 @@ interface DownloadRequest {
 }
 ```
 
-### TransferProgress
+### TransferProgress (DynamoDB Record)
 ```typescript
 interface TransferProgress {
-  transferId: string;
+  transferId: string;          // Partition key
+  sourceUrl: string;
+  bucketName: string;
+  keyPrefix?: string;
+  s3Key: string;
   bytesTransferred: number;
   totalBytes: number;
-  percentage: number;       // 0-100
+  percentage: number;          // 0-100
   status: TransferStatus;
-  startTime: Date;
-  endTime?: Date;
+  startTime: string;           // ISO timestamp
+  endTime?: string;            // ISO timestamp
+  lastUpdateTime: string;      // ISO timestamp
   error?: string;
+  fargateTaskArn?: string;     // For tracking the worker
+  ttl?: number;                // Auto-delete after 7 days
 }
 
 enum TransferStatus {
   PENDING = 'pending',
+  STARTING = 'starting',
   IN_PROGRESS = 'in-progress',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
+  CANCELLED = 'cancelled'
 }
 ```
 
@@ -480,10 +523,20 @@ Each property-based test will include a comment:
 ```typescript
 - S3 Bucket (Frontend hosting)
 - CloudFront Distribution (CDN)
-- Lambda Function (Backend)
+- Lambda Function (Orchestrator for job submission)
 - API Gateway (REST API)
-- IAM Role (Lambda execution role with S3 permissions)
-- CloudWatch Logs (Logging)
+- DynamoDB Table (Transfer state persistence)
+- ECS Fargate Cluster (Worker tasks)
+- ECS Task Definition (Container configuration)
+- ECR Repository (Docker image storage)
+- Step Functions State Machine (Workflow orchestration)
+- IAM Roles:
+  - Lambda execution role
+  - Fargate task execution role
+  - Fargate task role (with S3 and DynamoDB permissions)
+  - Step Functions execution role
+- CloudWatch Logs (Logging for Lambda and Fargate)
+- VPC (Optional, for private networking)
 ```
 
 ### Deployment Steps
