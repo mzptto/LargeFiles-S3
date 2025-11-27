@@ -37,7 +37,8 @@ export class StreamingService {
     sourceUrl: string,
     bucket: string,
     keyPrefix?: string,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    existingTransferId?: string
   ): Promise<TransferResult & { transferId?: string }> {
     let uploadId: string | undefined;
     let key: string | undefined;
@@ -77,8 +78,8 @@ export class StreamingService {
         throw new StreamingError(`File size exceeds maximum allowed size of ${this.MAX_FILE_SIZE} bytes`);
       }
 
-      // Generate transfer ID and create progress record
-      transferId = randomUUID();
+      // Use existing transfer ID or generate a new one
+      transferId = existingTransferId || randomUUID();
       this.progressStore.createTransfer(transferId, totalBytes);
 
       // Extract filename and construct S3 key

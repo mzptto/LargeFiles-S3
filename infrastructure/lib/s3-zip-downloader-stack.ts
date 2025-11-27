@@ -412,13 +412,14 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       ],
     });
 
-    // Add DynamoDB read permissions for progress query
+    // Add DynamoDB read permissions for progress query and list transfers
     progressQueryLambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
           'dynamodb:GetItem',
           'dynamodb:Query',
+          'dynamodb:Scan', // For listing all transfers
         ],
         resources: [transferTable.tableArn],
       })
@@ -458,6 +459,21 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       description: 'Lambda function for querying transfer status',
     });
 
+    // Lambda function for listing all transfers
+    const listTransfersLambda = new lambda.Function(this, 'ListTransfersFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'lambda/listTransfersHandler.handler',
+      code: lambda.Code.fromAsset('../backend/dist'),
+      role: progressQueryLambdaRole, // Reuse the same role (only needs read access)
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        DYNAMODB_TABLE_NAME: transferTable.tableName,
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      description: 'Lambda function for listing all transfers',
+    });
+
     // API Gateway REST API
     // Requirements: 7.2, 7.5
     const api = new apigateway.RestApi(this, 'S3ZipDownloaderApi', {
@@ -487,10 +503,19 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       proxy: true,
     });
 
+    // Lambda integration for list transfers
+    const listTransfersIntegration = new apigateway.LambdaIntegration(listTransfersLambda, {
+      timeout: cdk.Duration.seconds(29),
+      proxy: true,
+    });
+
     // POST /transfers endpoint (job submission)
     // Requirements: 7.2, 7.5
     const transfersResource = api.root.addResource('transfers');
     transfersResource.addMethod('POST', jobSubmissionIntegration);
+    
+    // GET /transfers endpoint (list all transfers)
+    transfersResource.addMethod('GET', listTransfersIntegration);
 
     // GET /transfers/{transferId} endpoint (progress query)
     // Requirements: 4.2, 4.3, 7.2, 7.5

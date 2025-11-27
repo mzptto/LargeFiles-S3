@@ -178,7 +178,8 @@ async function main() {
         // Progress callback - DynamoDB updates are handled by StreamingService
         const percentage = totalBytes > 0 ? Math.floor((bytesTransferred / totalBytes) * 100) : 0;
         console.log(`Progress: ${bytesTransferred}/${totalBytes} bytes (${percentage}%)`);
-      }
+      },
+      config.transferId // Pass the existing transfer ID
     );
 
     // Update DynamoDB on completion or failure

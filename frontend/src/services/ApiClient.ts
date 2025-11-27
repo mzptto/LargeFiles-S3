@@ -32,7 +32,7 @@ export class ApiClient {
    */
   async startDownload(request: DownloadRequest): Promise<DownloadResponse> {
     try {
-      const response = await this.client.post<DownloadResponse>('/download', request);
+      const response = await this.client.post<DownloadResponse>('/transfers', request);
       return response.data;
     } catch (error) {
       if (error instanceof ApiError) {
@@ -48,13 +48,29 @@ export class ApiClient {
    */
   async getProgress(transferId: string): Promise<ProgressResponse> {
     try {
-      const response = await this.client.get<ProgressResponse>(`/progress/${transferId}`);
+      const response = await this.client.get<ProgressResponse>(`/transfers/${transferId}`);
       return response.data;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
       }
       throw new ApiError('Failed to get progress', undefined, error);
+    }
+  }
+
+  /**
+   * Lists all transfers
+   */
+  async listTransfers(status?: string): Promise<{ success: boolean; transfers: ProgressResponse[]; count: number }> {
+    try {
+      const params = status ? { status } : {};
+      const response = await this.client.get<{ success: boolean; transfers: ProgressResponse[]; count: number }>('/transfers', { params });
+      return response.data;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to list transfers', undefined, error);
     }
   }
 

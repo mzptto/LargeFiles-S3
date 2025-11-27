@@ -1,6 +1,6 @@
 # Dockerfile for Fargate worker container
-# Base image: Node.js 18 Alpine
-FROM node:18-alpine
+# Base image: Node.js 18 Alpine from AWS Public ECR (avoids Docker Hub rate limits)
+FROM public.ecr.aws/docker/library/node:18-alpine
 
 # Set working directory
 WORKDIR /app

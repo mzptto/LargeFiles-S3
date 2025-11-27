@@ -6,11 +6,25 @@ export interface DownloadResponse {
 }
 
 export interface ProgressResponse {
+  success: boolean;
   transferId: string;
-  bytesTransferred: number;
-  totalBytes: number;
-  percentage: number;
   status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  progress: {
+    bytesTransferred: number;
+    totalBytes: number;
+    percentage: number;
+  };
+  metadata: {
+    sourceUrl: string;
+    bucketName: string;
+    keyPrefix?: string;
+    s3Key?: string;
+    s3Location?: string;
+    startTime: string;
+    endTime?: string;
+    lastUpdateTime?: string;
+    fargateTaskArn?: string;
+  };
   error?: string;
 }
 
