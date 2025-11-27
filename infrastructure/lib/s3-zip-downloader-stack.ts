@@ -12,6 +12,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Construct } from 'constructs';
 
 export class S3ZipDownloaderStack extends cdk.Stack {
@@ -614,6 +615,84 @@ export class S3ZipDownloaderStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'EcrRepositoryUri', {
       value: workerRepository.repositoryUri,
       description: 'ECR repository URI for worker container image',
+    });
+
+    // S3 bucket for CodeBuild source artifacts
+    const codeBuildSourceBucket = new s3.Bucket(this, 'CodeBuildSourceBucket', {
+      bucketName: `s3-zip-downloader-codebuild-${this.account}`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      versioned: false,
+      lifecycleRules: [
+        {
+          id: 'DeleteOldSourceArtifacts',
+          enabled: true,
+          expiration: cdk.Duration.days(7),
+        },
+      ],
+    });
+
+    // CodeBuild project for building and pushing Docker image
+    // This allows building without Docker installed locally
+    const dockerBuildProject = new codebuild.Project(this, 'DockerBuildProject', {
+      projectName: 'S3ZipDownloader-DockerBuild',
+      description: 'Build and push S3 ZIP Downloader worker Docker image to ECR',
+      source: codebuild.Source.s3({
+        bucket: codeBuildSourceBucket,
+        path: 'source.zip',
+      }),
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+        privileged: true, // Required for Docker builds
+        computeType: codebuild.ComputeType.SMALL,
+        environmentVariables: {
+          ECR_REPOSITORY_URI: {
+            value: workerRepository.repositoryUri,
+          },
+          IMAGE_REPO_NAME: {
+            value: 's3-zip-downloader-worker',
+          },
+          IMAGE_TAG: {
+            value: 'latest',
+          },
+          AWS_DEFAULT_REGION: {
+            value: this.region,
+          },
+          AWS_ACCOUNT_ID: {
+            value: this.account,
+          },
+        },
+      },
+      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec.yml'),
+      cache: codebuild.Cache.local(codebuild.LocalCacheMode.DOCKER_LAYER),
+      timeout: cdk.Duration.minutes(30),
+      logging: {
+        cloudWatch: {
+          logGroup: new logs.LogGroup(this, 'DockerBuildLogGroup', {
+            logGroupName: '/aws/codebuild/s3-zip-downloader-docker-build',
+            retention: logs.RetentionDays.ONE_WEEK,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+          }),
+        },
+      },
+    });
+
+    // Grant CodeBuild permissions to push to ECR
+    workerRepository.grantPullPush(dockerBuildProject);
+
+    // Grant CodeBuild permissions to read from source bucket
+    codeBuildSourceBucket.grantRead(dockerBuildProject);
+
+    // Output CodeBuild project name
+    new cdk.CfnOutput(this, 'CodeBuildProjectName', {
+      value: dockerBuildProject.projectName,
+      description: 'CodeBuild project name for building Docker image',
+    });
+
+    // Output CodeBuild source bucket name
+    new cdk.CfnOutput(this, 'CodeBuildSourceBucketName', {
+      value: codeBuildSourceBucket.bucketName,
+      description: 'S3 bucket for CodeBuild source artifacts',
     });
   }
 }

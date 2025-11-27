@@ -25,6 +25,7 @@
     "deploy:frontend": "npm run build:frontend:prod && pwsh -File scripts/deploy-frontend.ps1",
     "deploy:frontend:node": "npm run build:frontend:prod && node scripts/deploy-frontend.js",
     "deploy:docker": "npm run build:docker",
+    "deploy:docker:codebuild": "node scripts/build-docker-codebuild.js",
     "deploy:all": "npm run deploy:cdk && npm run deploy:docker && npm run deploy:frontend",
     "deploy": "npm run deploy:cdk"
   },
@@ -37,5 +38,8 @@
     "react"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "archiver": "^7.0.1"
+  }
 }

@@ -1,10 +1,17 @@
 {
   "S3ZipDownloaderStack": {
+    "CodeBuildProjectName": "S3ZipDownloader-DockerBuild",
+    "ProgressQueryLambdaName": "S3ZipDownloaderStack-ProgressQueryFunction90EF5ABC-Qou9y76FIVtT",
     "CloudFrontUrl": "d2h4pm30cmzfn1.cloudfront.net",
     "S3ZipDownloaderApiEndpoint6607D9B1": "https://qlicwyxqd9.execute-api.us-east-1.amazonaws.com/prod/",
-    "FrontendBucketName": "s3zipdownloaderstack-frontendbucketefe2e19c-4amo7cri3yg5",
+    "CodeBuildSourceBucketName": "s3-zip-downloader-codebuild-852515592623",
     "ApiEndpoint": "https://qlicwyxqd9.execute-api.us-east-1.amazonaws.com/prod/",
-    "LambdaFunctionName": "S3ZipDownloaderStack-BackendFunction63314140-TQRbNwn7znjq",
-    "TestBucketName": "s3-zip-downloader-test-852515592623"
+    "JobSubmissionLambdaName": "S3ZipDownloaderStack-JobSubmissionFunctionA601F1D4-BArX0mBOrYKj",
+    "StateMachineArn": "arn:aws:states:us-east-1:852515592623:stateMachine:S3ZipDownloaderTransfer",
+    "TestBucketName": "s3-zip-downloader-test-852515592623",
+    "EcsClusterName": "S3ZipDownloaderCluster",
+    "FrontendBucketName": "s3zipdownloaderstack-frontendbucketefe2e19c-4amo7cri3yg5",
+    "EcrRepositoryUri": "852515592623.dkr.ecr.us-east-1.amazonaws.com/s3-zip-downloader-worker",
+    "DynamoDBTableName": "S3ZipDownloaderStack-TransferTable29B5E78D-5NDLZEF09021"
   }
 }
