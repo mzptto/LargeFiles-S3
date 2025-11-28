@@ -27,7 +27,7 @@ interface JobInfo {
   error?: string;
 }
 
-const STORAGE_KEY = 'active-transfers';
+const LOCAL_STORAGE_TRANSFERS_KEY = 'active-transfers';
 const POLL_INTERVAL = 2000; // 2 seconds
 
 export const JobsMonitor: React.FC = () => {
@@ -138,7 +138,7 @@ export const JobsMonitor: React.FC = () => {
 
   const loadJobsFromLocalStorage = () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(LOCAL_STORAGE_TRANSFERS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         setJobs(parsed);
@@ -150,7 +150,7 @@ export const JobsMonitor: React.FC = () => {
 
   const saveJobs = (jobsToSave: JobInfo[]) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(jobsToSave));
+      localStorage.setItem(LOCAL_STORAGE_TRANSFERS_KEY, JSON.stringify(jobsToSave));
     } catch (error) {
       console.error('Failed to save jobs to localStorage:', error);
     }
@@ -425,10 +425,10 @@ export const JobsMonitor: React.FC = () => {
 // Export function to add a job from outside the component
 export const addJobToMonitor = (job: JobInfo) => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(LOCAL_STORAGE_TRANSFERS_KEY);
     const jobs = stored ? JSON.parse(stored) : [];
     const newJobs = [job, ...jobs];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newJobs));
+    localStorage.setItem(LOCAL_STORAGE_TRANSFERS_KEY, JSON.stringify(newJobs));
     
     // Trigger a storage event to update the component
     window.dispatchEvent(new Event('storage'));
