@@ -127,13 +127,13 @@ export const DownloadForm: React.FC<DownloadFormProps> = ({ onSubmit, isLoading 
           <SpaceBetween size="l">
             <FormField
               label="Source URL"
-              description="HTTPS URL pointing to a .zip file"
+              description="HTTPS URL pointing to a file to download"
               errorText={errors.sourceUrl}
             >
               <Input
                 value={sourceUrl}
                 onChange={({ detail }) => handleSourceUrlChange(detail.value)}
-                placeholder="https://example.com/file.zip"
+                placeholder="https://example.com/largefile.tar.gz"
                 disabled={isLoading}
               />
             </FormField>

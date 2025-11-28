@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-28T15:37:46.603Z",
+  "apiEndpoint": "https://qlicwyxqd9.execute-api.us-east-1.amazonaws.com/prod/",
+  "testBucket": "s3-zip-downloader-test-852515592623",
+  "results": [
+    {
+      "testFile": "Linux Kernel (138MB)",
+      "success": true,
+      "elapsedSeconds": 33.717,
+      "bytesTransferred": 140010660,
+      "avgThroughput": 3.960155721597055,
+      "s3Key": "performance-tests/linux-6.6.1.tar.xz"
+    },
+    {
+      "testFile": "Ubuntu ISO (5GB)",
+      "success": true,
+      "elapsedSeconds": 163.238,
+      "bytesTransferred": 4762707968,
+      "avgThroughput": 27.824846332502236,
+      "s3Key": "performance-tests/ubuntu-22.04.5-desktop-amd64.iso"
+    }
+  ]
+}

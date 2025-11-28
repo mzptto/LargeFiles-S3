@@ -1,6 +1,8 @@
-# S3 ZIP Downloader
+# S3 Large File Downloader
 
-A web application that enables users to download ZIP files directly from HTTPS URLs to AWS S3 buckets without downloading files to their local machine. The application uses an **asynchronous job processing model** powered by AWS ECS Fargate, supporting large file transfers from 1GB to 10TB that may take hours or days to complete.
+A web application that enables users to download large files directly from HTTPS URLs to AWS S3 buckets without downloading files to their local machine. The application uses an **asynchronous job processing model** powered by AWS ECS Fargate, supporting large file transfers from 1GB to 10TB that may take hours or days to complete.
+
+Supports any file type including ZIP, TAR.GZ, ISO, MP4, BIN, and more.
 
 ## Documentation
 
@@ -163,6 +165,49 @@ npm run deploy:frontend
 - **File Size Range:** 1 GB to 10 TB (10,737,418,240,000 bytes)
 - **Transfer Timeout:** 48 hours maximum per attempt (with automatic retries)
 - **Processing Model:** Asynchronous (transfers run in background on AWS infrastructure)
+
+## Configuration
+
+### Performance Tuning
+
+The application supports configurable concurrent uploads for optimal throughput:
+
+#### MAX_CONCURRENT_UPLOADS
+
+Controls the number of S3 multipart upload parts that can be uploaded simultaneously.
+
+- **Default:** 10 (increased from 4 for better throughput)
+- **Range:** 1-20
+- **Environment Variable:** `MAX_CONCURRENT_UPLOADS`
+- **Impact:** Higher values increase throughput but also increase memory usage
+- **Recommendation:** 
+  - 4-8 for standard workloads
+  - 10-12 for high-throughput requirements
+  - 15-20 for maximum performance (requires adequate memory)
+
+**Setting in ECS Task Definition:**
+
+The value is configured in the infrastructure CDK stack. To modify:
+
+1. Edit `infrastructure/lib/s3-zip-downloader-stack.ts`
+2. Update the `MAX_CONCURRENT_UPLOADS` environment variable in the task definition
+3. Redeploy: `npm run deploy`
+
+**Example:**
+```typescript
+environment: {
+  AWS_REGION: this.region,
+  DYNAMODB_TABLE_NAME: transferTable.tableName,
+  MAX_CONCURRENT_UPLOADS: '10', // Adjust this value
+}
+```
+
+**Monitoring:**
+
+The application logs concurrency metrics during transfers:
+- Active concurrent uploads count
+- Peak concurrency reached during transfer
+- Memory usage (monitor via CloudWatch Container Insights)
 
 ## API Documentation
 

@@ -106,6 +106,7 @@ The application uses **AWS ECS Fargate** to handle the actual file transfer work
 - **Environment Variables**:
   - `AWS_REGION`: AWS region for S3 operations
   - `DYNAMODB_TABLE_NAME`: Table for transfer state
+  - `MAX_CONCURRENT_UPLOADS`: Number of concurrent S3 multipart upload parts (default: 10, range: 1-20)
   - `TRANSFER_ID`: Unique transfer identifier (runtime)
   - `SOURCE_URL`: Source file URL (runtime)
   - `BUCKET`: Target S3 bucket (runtime)
@@ -345,6 +346,18 @@ Or from the root directory:
 ```bash
 npm run deploy
 ```
+
+**Optional: Configure Performance Parameters**
+
+You can customize the deployment with CloudFormation parameters:
+
+```bash
+cd infrastructure
+cdk deploy --parameters MaxConcurrentUploads=12
+```
+
+Available parameters:
+- `MaxConcurrentUploads` (default: 10, range: 1-20): Number of concurrent S3 multipart upload parts. Higher values increase throughput but also memory usage.
 
 The deployment process will:
 1. Create an S3 bucket for frontend hosting

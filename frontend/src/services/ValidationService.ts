@@ -24,18 +24,22 @@ export class ValidationService {
   }
 
   /**
-   * Validates that a URL ends with .zip extension
+   * Validates that a URL has a filename
    * Requirements: 1.3
    */
-  static validateZipExtension(url: string): ValidationResult {
+  static validateHasFilename(url: string): ValidationResult {
     try {
       const urlObj = new URL(url);
       const pathname = urlObj.pathname;
       
-      if (!pathname.toLowerCase().endsWith('.zip')) {
+      // Extract filename from path
+      const parts = pathname.split('/').filter(p => p.length > 0);
+      const filename = parts[parts.length - 1];
+      
+      if (!filename || filename.length === 0) {
         return {
           isValid: false,
-          error: 'URL must point to a .zip file'
+          error: 'URL must point to a file'
         };
       }
       return { isValid: true };
@@ -48,7 +52,7 @@ export class ValidationService {
   }
 
   /**
-   * Validates a complete URL (HTTPS + .zip extension)
+   * Validates a complete URL (HTTPS + has filename)
    * Requirements: 1.2, 1.3
    */
   static validateUrl(url: string): ValidationResult {
@@ -57,9 +61,9 @@ export class ValidationService {
       return protocolResult;
     }
 
-    const extensionResult = this.validateZipExtension(url);
-    if (!extensionResult.isValid) {
-      return extensionResult;
+    const filenameResult = this.validateHasFilename(url);
+    if (!filenameResult.isValid) {
+      return filenameResult;
     }
 
     return { isValid: true };

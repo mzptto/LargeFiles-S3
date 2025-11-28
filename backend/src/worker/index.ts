@@ -129,15 +129,6 @@ async function main() {
 
     console.log(`Transfer record loaded. Status: ${transferRecord.status}`);
 
-    // Update status to STARTING
-    try {
-      await dynamoDBService.updateTransferProgress(config.transferId, 0, 0);
-      console.log('Transfer status updated to IN_PROGRESS');
-    } catch (dbError: any) {
-      console.error('Failed to update transfer status:', formatErrorMessage(dbError));
-      // Continue anyway - this is not critical
-    }
-
     // Log key prefix information
     if (config.keyPrefix) {
       console.log(`Using key prefix: ${config.keyPrefix}`);
@@ -170,6 +161,12 @@ async function main() {
     // The StreamingService will handle key prefix concatenation with filename
     // Requirements: 3.4, 3.5, 8.3, 8.4 - Handle URL fetch, S3, and streaming errors
     console.log('Starting file transfer...');
+    
+    // Throttle console logging to reduce overhead (only log every 1% or 100MB)
+    let lastLoggedPercentage = -1;
+    let lastLoggedBytes = 0;
+    const LOG_THRESHOLD_BYTES = 100 * 1024 * 1024; // 100MB
+    
     const result = await streamingService.transferToS3(
       config.sourceUrl,
       config.bucket,
@@ -177,7 +174,14 @@ async function main() {
       (bytesTransferred, totalBytes) => {
         // Progress callback - DynamoDB updates are handled by StreamingService
         const percentage = totalBytes > 0 ? Math.floor((bytesTransferred / totalBytes) * 100) : 0;
-        console.log(`Progress: ${bytesTransferred}/${totalBytes} bytes (${percentage}%)`);
+        const bytesDiff = bytesTransferred - lastLoggedBytes;
+        
+        // Only log if percentage changed by 1% or 100MB transferred
+        if (percentage !== lastLoggedPercentage || bytesDiff >= LOG_THRESHOLD_BYTES) {
+          console.log(`Progress: ${bytesTransferred}/${totalBytes} bytes (${percentage}%)`);
+          lastLoggedPercentage = percentage;
+          lastLoggedBytes = bytesTransferred;
+        }
       },
       config.transferId // Pass the existing transfer ID
     );

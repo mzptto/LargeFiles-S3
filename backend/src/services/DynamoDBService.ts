@@ -38,6 +38,7 @@ export interface TransferRecord {
   lastUpdateTime: string; // ISO timestamp
   error?: string;
   fargateTaskArn?: string;
+  executionArn?: string; // Step Functions execution ARN
   s3Location?: string; // S3 location after successful transfer
   ttl?: number; // Unix timestamp for TTL
 }
@@ -240,6 +241,63 @@ export class DynamoDBService {
       console.error('Failed to mark transfer as failed in DynamoDB:', error);
       throw new Error(
         `Failed to mark transfer failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Marks transfer as cancelled in DynamoDB
+   */
+  async markTransferCancelled(transferId: string): Promise<TransferRecord | null> {
+    const now = new Date().toISOString();
+
+    const params: UpdateItemCommandInput = {
+      TableName: this.tableName,
+      Key: marshall({ transferId }),
+      UpdateExpression:
+        'SET #status = :status, endTime = :endTime, lastUpdateTime = :updateTime',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: marshall({
+        ':status': TransferStatus.CANCELLED,
+        ':endTime': now,
+        ':updateTime': now,
+      }),
+      ReturnValues: 'ALL_NEW',
+    };
+
+    try {
+      const result = await this.client.send(new UpdateItemCommand(params));
+      if (result.Attributes) {
+        return unmarshall(result.Attributes) as TransferRecord;
+      }
+      return null;
+    } catch (error) {
+      throw new Error(
+        `Failed to mark transfer cancelled: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Updates the execution ARN for a transfer
+   */
+  async updateExecutionArn(transferId: string, executionArn: string): Promise<void> {
+    const params: UpdateItemCommandInput = {
+      TableName: this.tableName,
+      Key: marshall({ transferId }),
+      UpdateExpression: 'SET executionArn = :arn',
+      ExpressionAttributeValues: marshall({
+        ':arn': executionArn,
+      }),
+    };
+
+    try {
+      await this.client.send(new UpdateItemCommand(params));
+    } catch (error) {
+      throw new Error(
+        `Failed to update execution ARN: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

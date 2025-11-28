@@ -18,6 +18,13 @@ export class S3Service {
   constructor(region?: string) {
     this.s3Client = new S3Client({
       region: region || process.env.AWS_REGION || 'us-east-1',
+      // Increase timeouts for large file uploads
+      requestHandler: {
+        requestTimeout: 300000, // 5 minutes for individual requests
+        connectionTimeout: 60000, // 1 minute to establish connection
+      },
+      // Configure retries at SDK level
+      maxAttempts: 5, // SDK will retry up to 5 times
     });
   }
 
@@ -43,7 +50,7 @@ export class S3Service {
       const command = new CreateMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
-        ContentType: 'application/zip',
+        ContentType: 'application/octet-stream', // Generic binary content type for any file
       });
 
       const response = await this.s3Client.send(command);
@@ -70,7 +77,10 @@ export class S3Service {
     partNumber: number,
     data: Buffer
   ): Promise<string> {
+    const startTime = Date.now();
     try {
+      console.log(`Uploading part ${partNumber} (${(data.length / 1024 / 1024).toFixed(2)} MB)...`);
+      
       const command = new UploadPartCommand({
         Bucket: bucket,
         Key: key,
@@ -80,6 +90,10 @@ export class S3Service {
       });
 
       const response = await this.s3Client.send(command);
+      
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      const throughput = (data.length / 1024 / 1024 / parseFloat(duration)).toFixed(2);
+      console.log(`Part ${partNumber} uploaded in ${duration}s (${throughput} MB/s)`);
 
       if (!response.ETag) {
         throw new S3Error(`Failed to upload part ${partNumber}: No ETag returned`);
@@ -87,7 +101,15 @@ export class S3Service {
 
       return response.ETag;
     } catch (error: any) {
-      console.error(`Failed to upload part ${partNumber}:`, error);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.error(`Failed to upload part ${partNumber} after ${duration}s:`, error.message || error);
+      console.error(`Error details:`, {
+        name: error.name,
+        code: error.code,
+        statusCode: error.$metadata?.httpStatusCode,
+        attempts: error.$metadata?.attempts,
+        totalRetryDelay: error.$metadata?.totalRetryDelay
+      });
       throw ErrorHandler.handleS3Error(error, bucket);
     }
   }
@@ -103,12 +125,19 @@ export class S3Service {
     parts: CompletedPart[]
   ): Promise<string> {
     try {
+      // Sort parts by PartNumber to ensure they're in order
+      // S3 requires parts to be in ascending order by PartNumber
+      // With concurrent uploads, parts can complete out of order
+      const sortedParts = [...parts].sort((a, b) => (a.PartNumber || 0) - (b.PartNumber || 0));
+      
+      console.log(`Completing multipart upload with ${sortedParts.length} parts`);
+      
       const command = new CompleteMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
         UploadId: uploadId,
         MultipartUpload: {
-          Parts: parts,
+          Parts: sortedParts,
         },
       });
 

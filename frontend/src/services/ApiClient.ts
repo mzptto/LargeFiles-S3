@@ -75,6 +75,22 @@ export class ApiClient {
   }
 
   /**
+   * Cancels a transfer
+   * Stops both the Step Functions execution and any running ECS tasks
+   */
+  async cancelTransfer(transferId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.delete<{ success: boolean; message: string }>(`/transfers/${transferId}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to cancel transfer', undefined, error);
+    }
+  }
+
+  /**
    * Polls for progress updates at regular intervals
    * Continues polling until transfer is completed or failed
    * Requirements: 4.3, 8.6
@@ -88,7 +104,7 @@ export class ApiClient {
     this.cancelPolling(transferId);
 
     return new Promise((resolve, reject) => {
-      let timeoutId: NodeJS.Timeout | null = null;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       let cancelled = false;
 
       const cancel = () => {

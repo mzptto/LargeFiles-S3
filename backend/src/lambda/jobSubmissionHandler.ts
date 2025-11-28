@@ -141,6 +141,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const executionResult = await sfnClient.send(startExecutionCommand);
       console.log(`Step Functions execution started: ${executionResult.executionArn}`);
+
+      // Store execution ARN in DynamoDB for later cancellation
+      if (executionResult.executionArn) {
+        try {
+          await dynamoDBService.updateExecutionArn(transferId, executionResult.executionArn);
+        } catch (dbError) {
+          console.error('Failed to update execution ARN in DynamoDB:', dbError);
+          // Don't fail the request if this update fails
+        }
+      }
     } catch (sfnError) {
       console.error('Failed to start Step Functions execution:', sfnError);
       
