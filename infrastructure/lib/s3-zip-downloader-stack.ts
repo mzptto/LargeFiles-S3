@@ -18,6 +18,16 @@ import { Construct } from 'constructs';
 export class S3ZipDownloaderStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+    
+    // CloudFormation parameter for MAX_CONCURRENT_UPLOADS
+    // Requirements: Infrastructure configuration, performance tuning
+    const maxConcurrentUploadsParam = new cdk.CfnParameter(this, 'MaxConcurrentUploads', {
+      type: 'Number',
+      default: 10,
+      minValue: 1,
+      maxValue: 20,
+      description: 'Maximum number of concurrent S3 multipart upload parts (1-20). Higher values increase throughput but also memory usage.',
+    });
 
     // DynamoDB table for transfer state persistence
     // Requirements: 7.6, 8.7
@@ -124,9 +134,10 @@ export class S3ZipDownloaderStack extends cdk.Stack {
 
     // ECS Task Definition for Fargate worker
     // Requirements: 7.2, 8.2
+    // Increased resources for better throughput on large file transfers
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'WorkerTaskDefinition', {
-      memoryLimitMiB: 4096, // 4GB memory
-      cpu: 2048, // 2 vCPU
+      memoryLimitMiB: 16384, // 16GB memory (increased from 4GB for better buffering)
+      cpu: 4096, // 4 vCPU (increased from 2 vCPU for parallel uploads)
       executionRole: taskExecutionRole,
       taskRole: taskRole,
     });
@@ -141,6 +152,7 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       environment: {
         AWS_REGION: this.region,
         DYNAMODB_TABLE_NAME: transferTable.tableName,
+        MAX_CONCURRENT_UPLOADS: maxConcurrentUploadsParam.valueAsString,
       },
       // Environment variables TRANSFER_ID, SOURCE_URL, BUCKET, KEY_PREFIX
       // will be passed at runtime by Step Functions
@@ -474,6 +486,61 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       description: 'Lambda function for listing all transfers',
     });
 
+    // Lambda execution role for cancel transfer
+    const cancelTransferLambdaRole = new iam.Role(this, 'CancelTransferLambdaRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      description: 'Execution role for S3 ZIP Downloader cancel transfer Lambda',
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
+    // Add DynamoDB permissions for cancel transfer
+    cancelTransferLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:UpdateItem',
+        ],
+        resources: [transferTable.tableArn],
+      })
+    );
+
+    // Add Step Functions permissions for stopping executions
+    cancelTransferLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['states:StopExecution'],
+        resources: [stateMachine.stateMachineArn + ':*'], // Allow stopping any execution
+      })
+    );
+
+    // Add ECS permissions for stopping tasks
+    cancelTransferLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ecs:ListTasks', 'ecs:StopTask'],
+        resources: ['*'], // ECS tasks don't support resource-level permissions
+      })
+    );
+
+    // Lambda function for cancelling transfers
+    const cancelTransferLambda = new lambda.Function(this, 'CancelTransferFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'lambda/cancelTransferHandler.handler',
+      code: lambda.Code.fromAsset('../backend/dist'),
+      role: cancelTransferLambdaRole,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        DYNAMODB_TABLE_NAME: transferTable.tableName,
+        ECS_CLUSTER_NAME: cluster.clusterName,
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      description: 'Lambda function for cancelling transfers',
+    });
+
     // API Gateway REST API
     // Requirements: 7.2, 7.5
     const api = new apigateway.RestApi(this, 'S3ZipDownloaderApi', {
@@ -509,6 +576,12 @@ export class S3ZipDownloaderStack extends cdk.Stack {
       proxy: true,
     });
 
+    // Lambda integration for cancel transfer
+    const cancelTransferIntegration = new apigateway.LambdaIntegration(cancelTransferLambda, {
+      timeout: cdk.Duration.seconds(29),
+      proxy: true,
+    });
+
     // POST /transfers endpoint (job submission)
     // Requirements: 7.2, 7.5
     const transfersResource = api.root.addResource('transfers');
@@ -518,9 +591,11 @@ export class S3ZipDownloaderStack extends cdk.Stack {
     transfersResource.addMethod('GET', listTransfersIntegration);
 
     // GET /transfers/{transferId} endpoint (progress query)
+    // DELETE /transfers/{transferId} endpoint (cancel transfer)
     // Requirements: 4.2, 4.3, 7.2, 7.5
     const transferIdResource = transfersResource.addResource('{transferId}');
     transferIdResource.addMethod('GET', progressQueryIntegration);
+    transferIdResource.addMethod('DELETE', cancelTransferIntegration);
 
     // CloudWatch alarm for job submission Lambda errors
     // Requirements: 7.2
@@ -718,6 +793,12 @@ export class S3ZipDownloaderStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CodeBuildSourceBucketName', {
       value: codeBuildSourceBucket.bucketName,
       description: 'S3 bucket for CodeBuild source artifacts',
+    });
+    
+    // Output MAX_CONCURRENT_UPLOADS configuration
+    new cdk.CfnOutput(this, 'MaxConcurrentUploads', {
+      value: maxConcurrentUploadsParam.valueAsString,
+      description: 'Maximum concurrent S3 multipart upload parts configured for worker tasks',
     });
   }
 }

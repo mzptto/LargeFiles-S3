@@ -547,3 +547,399 @@
 
 
   - Ensure all tests pass, ask the user if questions arise.
+
+
+---
+
+# Performance Optimization Tasks
+
+## Phase 1: Critical Performance Fixes (P0)
+
+- [x] 15. Fix Buffer Concatenation Bottleneck
+
+
+
+
+
+  - Replace inefficient `Buffer.concat()` pattern with pre-allocated buffers
+  - Expected impact: 30-50% throughput improvement
+  - _Requirements: Performance optimization, memory efficiency_
+
+- [x] 15.1 Refactor uploadParts() buffer handling in StreamingService
+
+
+  - Replace `Buffer.concat()` pattern with pre-allocated buffer using `Buffer.allocUnsafe()`
+  - Implement buffer offset tracking instead of concatenation
+  - Handle buffer overflow when chunk spans part boundaries
+  - Ensure no data loss at part boundaries
+  - _Requirements: Performance optimization, memory efficiency_
+
+- [x] 15.2 Add buffer performance metrics and validation
+
+
+  - Log buffer allocation count
+  - Track memory reuse efficiency
+  - Monitor buffer copy operations
+  - Add buffer size validation
+  - _Requirements: Performance monitoring_
+
+
+- [x] 15.3 Test buffer handling with various file sizes
+
+
+  - Test with files smaller than part size (< 100MB)
+  - Test with files exactly at part size boundaries
+  - Test with large files (> 1GB)
+  - Verify data integrity with checksums
+  - _Requirements: Data integrity validation_
+
+- [x] 16. Fix Axios Timeout Configuration
+
+
+
+  - Replace total request timeout with socket timeout
+  - Expected impact: Enable large file transfers (>50GB)
+  - _Requirements: Network reliability, large file support_
+
+- [x] 16.1 Configure HTTP/HTTPS agents with socket timeout
+
+
+  - Add `http` and `https` imports to StreamingService
+  - Remove total request timeout (900000ms)
+  - Configure httpAgent with socket timeout (60000ms)
+  - Configure httpsAgent with socket timeout (60000ms)
+  - Enable keepAlive on both agents
+  - _Requirements: Network reliability, large file support_
+
+- [x] 16.2 Add connection monitoring and testing
+
+
+  - Log connection establishment time
+  - Log socket timeout events
+  - Track connection reuse via keepAlive
+  - Test with slow source servers and large files (>10GB)
+  - Verify no premature timeouts
+  - _Requirements: Network diagnostics, resilience_
+
+- [x] 17. Increase Concurrent Upload Capacity
+
+
+
+
+  - Increase from 4 to 10 concurrent uploads
+  - Expected impact: 2-3x throughput improvement
+  - _Requirements: Configurability, performance tuning_
+
+- [x] 17.1 Make concurrent uploads configurable
+
+
+  - Add `MAX_CONCURRENT_UPLOADS` environment variable
+  - Set default to 10 (increased from 4)
+  - Add validation (min: 1, max: 20)
+  - Document configuration in README
+  - _Requirements: Configurability, performance tuning_
+
+- [x] 17.2 Update infrastructure configuration
+
+
+  - Add environment variable to ECS task definition in CDK stack
+  - Set production value to 10
+  - Add CloudFormation parameter for easy adjustment
+  - _Requirements: Infrastructure configuration_
+
+- [x] 17.3 Add concurrency monitoring and testing
+
+
+  - Log active concurrent uploads count
+  - Track peak concurrency during transfer
+  - Monitor memory usage with increased concurrency
+  - Test with 4, 8, 10, 12 concurrent uploads and measure throughput
+  - _Requirements: Performance monitoring, validation_
+
+- [x] 18. Checkpoint - Validate P0 Performance Fixes
+
+
+
+
+
+
+
+
+
+
+
+  - Build, deploy, and validate critical performance improvements
+  - Expected result: 5-10x throughput improvement
+  - _Requirements: Deployment validation, performance validation_
+
+
+- [x] 18.1 Build and deploy updated code
+
+  - Run TypeScript compilation
+  - Build Docker image via CodeBuild
+  - Deploy to ECS cluster
+  - Verify new task is running with updated image
+  - _Requirements: Deployment validation_
+
+
+- [x] 18.2 Run baseline performance tests
+
+
+  - Test with 500MB file (Linux kernel archive from kernel.org)
+  - Test with 4GB file (Ubuntu ISO from ubuntu.com)
+  - Measure and record throughput (MB/s)
+  - Compare against pre-fix baseline
+  - _Requirements: Performance validation_
+
+
+- [x] 18.3 Verify no regressions
+
+  - Verify data integrity (file checksums match)
+  - Check error handling still works correctly
+  - Monitor CloudWatch logs for errors
+  - Ensure all existing functionality works
+  - _Requirements: Quality assurance_
+
+
+- [x] 18.4 Document performance improvements
+
+  - Record throughput improvements (before/after)
+  - Document any issues encountered
+  - Update PERFORMANCE_EVALUATION.md with results
+  - _Requirements: Documentation_
+
+---
+
+## Phase 2: High Priority Optimizations (P1)
+
+- [x] 19. Implement Proper Backpressure Handling
+
+
+
+  - Improve stream pause/resume logic for better flow control
+  - Expected impact: 10-20% throughput improvement, better stability
+  - _Requirements: Stream flow control, performance_
+
+- [x] 19.1 Analyze and implement improved backpressure logic
+
+
+  - Review current stream pause/resume logic
+  - Resume stream when buffer space available (not just when upload completes)
+  - Add high-water mark checking for buffer memory
+  - Implement adaptive pause/resume based on memory pressure
+  - _Requirements: Performance analysis, stream flow control_
+
+- [x] 19.2 Add backpressure monitoring and testing
+
+
+  - Log stream pause/resume events
+  - Track time spent in paused state
+  - Monitor buffer memory usage
+  - Test with slow S3 uploads and varying network conditions
+  - Verify no source server timeouts
+  - _Requirements: Performance monitoring, resilience testing_
+
+- [x] 20. Implement Adaptive Part Sizing
+
+
+
+
+  - Use larger parts for larger files to reduce overhead
+  - Expected impact: 5-15% throughput improvement for large files
+  - _Requirements: Performance optimization_
+
+
+- [x] 20.1 Design and implement adaptive part sizing
+
+  - Files <10GB: 100MB parts
+  - Files 10-100GB: 250MB parts
+  - Files >100GB: 500MB parts
+  - Add `calculateOptimalPartSize()` method
+  - Ensure part size stays within S3 limits (5MB-5GB)
+  - Ensure total parts stay under 10,000 limit
+  - _Requirements: Performance optimization, S3 constraints_
+
+- [x] 20.2 Update buffer allocation and test
+
+
+  - Allocate buffers based on calculated part size
+  - Handle memory constraints for very large parts
+  - Test 5GB file (should use 100MB parts)
+  - Test 50GB file (should use 250MB parts)
+  - Test 200GB file (should use 500MB parts)
+  - _Requirements: Memory management, performance validation_
+
+- [x] 21. Optimize Progress Tracking
+
+
+
+
+
+  - Reduce CPU overhead from progress calculations
+  - Expected impact: 2-5% CPU reduction
+  - _Requirements: CPU optimization_
+
+- [x] 21.1 Refactor progress calculation logic
+
+
+  - Move percentage calculation inside throttling check
+  - Only calculate when update is needed
+  - Cache frequently used values
+  - Reduce callback frequency for UI updates
+  - _Requirements: CPU optimization, performance_
+
+
+- [x] 21.2 Add progress tracking metrics
+
+
+
+
+  - Log number of progress calculations
+  - Track progress update frequency
+  - Monitor callback overhead
+  - _Requirements: Performance monitoring_
+
+- [x] 22. Checkpoint - Validate P1 Optimizations
+
+
+
+
+
+  - Deploy and validate high priority optimizations
+  - Expected result: Additional 15-35% improvement over P0
+  - _Requirements: Deployment, performance validation_
+
+- [x] 22.1 Build and deploy P1 optimizations
+
+
+  - Compile and build Docker image
+  - Deploy to ECS
+  - Verify deployment successful
+  - _Requirements: Deployment_
+
+
+- [x] 22.2 Run comprehensive performance tests
+
+  - Test with 1GB, 10GB, 50GB files
+  - Measure throughput improvements
+  - Compare against P0 baseline
+  - Test with various source servers (CDN, slow servers)
+  - _Requirements: Performance validation_
+
+- [x] 22.3 Validate stability improvements
+
+
+  - Run extended stress test (4+ hours)
+  - Monitor for memory leaks
+  - Check error rates
+  - Verify no crashes or hangs
+  - _Requirements: Stability validation_
+
+- [x] 22.4 Update documentation
+
+
+  - Document new configuration options
+  - Update performance benchmarks
+  - Add troubleshooting guide for performance issues
+  - _Requirements: Documentation_
+
+---
+
+## Phase 3: Medium Priority Improvements (P2)
+
+- [ ] 23. Migrate to Stream Pipeline API
+  - Use Node.js pipeline API for cleaner stream handling
+  - Expected impact: Better error handling, cleaner code
+  - _Requirements: Code quality, maintainability_
+
+- [ ] 23.1 Research and plan stream pipeline migration
+  - Review Node.js pipeline() and pipeline/promises API
+  - Understand error propagation in pipelines
+  - Plan migration strategy
+  - _Requirements: Technical research_
+
+- [ ] 23.2 Create custom Transform and Writable streams
+  - Implement custom Transform stream for buffering
+  - Handle part-sized buffering correctly
+  - Implement custom Writable stream for S3 uploads
+  - Handle concurrent uploads in Writable stream
+  - Implement retry logic in streams
+  - _Requirements: Stream implementation_
+
+- [ ] 23.3 Refactor uploadParts to use pipeline
+  - Replace manual event handling with pipeline()
+  - Use pipeline() for stream composition
+  - Simplify error handling
+  - Test functionality matches original
+  - Validate performance is maintained
+  - _Requirements: Code refactoring, testing_
+
+- [ ] 24. Optimize Memory Allocation Patterns
+  - Reduce memory allocation overhead
+  - Expected impact: 5-10% memory efficiency improvement
+  - _Requirements: Memory optimization_
+
+- [ ] 24.1 Audit and optimize Buffer allocations
+  - Find all `Buffer.alloc()` calls
+  - Replace with `Buffer.allocUnsafe()` where safe
+  - Keep `Buffer.alloc()` for security-sensitive data
+  - Add comments explaining allocation choices
+  - _Requirements: Code audit, memory optimization_
+
+- [ ] 24.2 Implement buffer pooling
+  - Create buffer pool for part-sized buffers
+  - Reuse buffers across parts
+  - Add pool metrics
+  - Monitor memory usage during transfers
+  - Check for memory leaks
+  - _Requirements: Memory management, validation_
+
+- [ ] 25. Improve Logging Infrastructure
+  - Replace console.log with structured logging
+  - Expected impact: Better observability, reduced overhead
+  - _Requirements: Logging infrastructure_
+
+- [ ] 25.1 Install and configure structured logging
+  - Choose logging library (Winston or Pino)
+  - Install and configure
+  - Set up log levels (debug, info, warn, error)
+  - _Requirements: Logging infrastructure_
+
+- [ ] 25.2 Migrate to structured logging
+  - Replace all console.log calls with structured logger
+  - Add appropriate log levels
+  - Include contextual metadata (transferId, partNumber, etc.)
+  - _Requirements: Code refactoring_
+
+- [ ] 25.3 Configure CloudWatch integration
+  - Set up log groups and streams
+  - Configure log retention policies
+  - Add CloudWatch Insights queries for common issues
+  - Add performance logging (transfer times, throughput)
+  - _Requirements: AWS integration, performance monitoring_
+
+- [ ] 26. Final Validation and Documentation
+  - Comprehensive testing and documentation update
+  - _Requirements: Testing, documentation_
+
+- [ ] 26.1 Run comprehensive test suite
+  - Test all file sizes (100MB to 100GB)
+  - Test various source servers (fast CDN, slow servers)
+  - Test error scenarios (network failures, S3 errors)
+  - Validate data integrity for all tests
+  - _Requirements: Comprehensive testing_
+
+- [ ] 26.2 Performance benchmarking and documentation
+  - Document baseline vs optimized performance
+  - Create performance comparison charts
+  - Document optimal configuration settings
+  - Update README with performance information
+  - Update deployment guide
+  - Add performance tuning guide
+  - _Requirements: Performance documentation_
+
+- [ ] 26.3 Create performance monitoring dashboard
+  - Set up CloudWatch dashboard
+  - Add key performance metrics (throughput, error rate, duration)
+  - Add alerting for performance degradation
+  - _Requirements: Monitoring infrastructure_

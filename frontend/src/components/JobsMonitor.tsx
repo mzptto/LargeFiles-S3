@@ -156,7 +156,19 @@ export const JobsMonitor: React.FC = () => {
     }
   };
 
-  const removeJob = (transferId: string) => {
+  const removeJob = async (transferId: string, shouldCancel: boolean = false) => {
+    // If the job is active and shouldCancel is true, cancel it via API
+    const job = jobs.find(j => j.transferId === transferId);
+    if (shouldCancel && job && (job.status === 'pending' || job.status === 'in-progress')) {
+      try {
+        await apiClient.cancelTransfer(transferId);
+        console.log(`Transfer ${transferId} cancelled successfully`);
+      } catch (error) {
+        console.error(`Failed to cancel transfer ${transferId}:`, error);
+        // Continue with removal even if cancel fails
+      }
+    }
+
     setJobs(prevJobs => {
       const filtered = prevJobs.filter(job => job.transferId !== transferId);
       saveJobs(filtered);
@@ -377,7 +389,8 @@ export const JobsMonitor: React.FC = () => {
                   <Button
                     variant="icon"
                     iconName="close"
-                    onClick={() => removeJob(job.transferId)}
+                    onClick={() => removeJob(job.transferId, job.status === 'pending' || job.status === 'in-progress')}
+                    ariaLabel={job.status === 'pending' || job.status === 'in-progress' ? 'Cancel and remove transfer' : 'Remove transfer'}
                   />
                 </div>
               </div>

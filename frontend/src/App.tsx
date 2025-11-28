@@ -26,6 +26,7 @@ function App() {
 
   const handleDownload = async (request: DownloadRequest) => {
     try {
+      // Show loading indicator only during API call
       setIsLoading(true);
       setStatus('in-progress');
       setProgress(0);
@@ -34,6 +35,9 @@ function App() {
 
       // Start the download
       const response = await apiClient.startDownload(request);
+      
+      // Re-enable form immediately after API call completes
+      setIsLoading(false);
 
       if (!response.success) {
         setStatus('error');
@@ -59,7 +63,8 @@ function App() {
         // Trigger monitor refresh
         setRefreshMonitor(prev => prev + 1);
 
-        await apiClient.pollProgress(
+        // Poll for progress in background (doesn't block form)
+        apiClient.pollProgress(
           response.transferId,
           (progressData) => {
             setProgress(progressData.progress.percentage);
@@ -82,7 +87,6 @@ function App() {
     } catch (error: any) {
       setStatus('error');
       setMessage(error.message || 'An unexpected error occurred');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -96,9 +100,9 @@ function App() {
           header={
             <Header
               variant="h1"
-              description="Download ZIP files from HTTPS URLs directly to AWS S3 buckets"
+              description="Download large files from HTTPS URLs directly to AWS S3 buckets"
             >
-              S3 ZIP Downloader
+              S3 Large File Downloader
             </Header>
           }
         >
