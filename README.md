@@ -2,7 +2,7 @@
 
 A web application that enables users to download large files directly from HTTPS URLs to AWS S3 buckets without downloading files to their local machine. The application uses an **asynchronous job processing model** powered by AWS ECS Fargate, supporting large file transfers from 1GB to 10TB that may take hours or days to complete.
 
-Supports any file type including ZIP, TAR.GZ, ISO, MP4, BIN, and more.
+Supports any file type including ZIP, TAR.GZ, SGY, MDIO, ZGY, ISO, MP4, BIN, and more.
 
 ## Documentation
 
