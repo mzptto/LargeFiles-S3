@@ -107,8 +107,8 @@ function App() {
           }
         >
           <SpaceBetween size="l">
-            <JobsMonitor key={refreshMonitor} />
             <DownloadForm onSubmit={handleDownload} isLoading={isLoading} />
+            <JobsMonitor key={refreshMonitor} />
             <ProgressDisplay
               progress={progress}
               status={status}
